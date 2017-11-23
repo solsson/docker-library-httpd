@@ -15,7 +15,8 @@ ENV OPENSSL_VERSION 1.1.0f-3+deb9u1
 
 # install httpd runtime dependencies
 # https://httpd.apache.org/docs/2.4/install.html#requirements
-RUN apt-get update \
+RUN export DEBIAN_FRONTEND=noninteractive \
+	&& apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		libapr1 \
 		libaprutil1 \
@@ -27,7 +28,8 @@ RUN apt-get update \
 		libpcre++0v5 \
 		libssl1.1=$OPENSSL_VERSION \
 		libxml2 \
-	&& rm -r /var/lib/apt/lists/*
+	&& rm -r /var/lib/apt/lists/* \
+	&& rm -rf /var/log/dpkg.log /var/log/alternatives.log /var/log/apt
 
 ENV HTTPD_VERSION 2.4.29
 ENV HTTPD_SHA256 777753a5a25568a2a27428b2214980564bc1c38c1abf9ccc7630b639991f7f00
@@ -45,6 +47,7 @@ ENV APACHE_DIST_URLS \
 
 # see https://httpd.apache.org/docs/2.4/install.html#requirements
 RUN set -eux; \
+	export DEBIAN_FRONTEND=noninteractive; \
 	\
 	# mod_http2 mod_lua mod_proxy_html mod_xml2enc
 	# https://anonscm.debian.org/cgit/pkg-apache/apache2.git/tree/debian/control?id=adb6f181257af28ee67af15fc49d2699a0080d4c
@@ -126,6 +129,7 @@ RUN set -eux; \
 		"$HTTPD_PREFIX/conf/httpd.conf"; \
 	\
 	apt-get purge -y --auto-remove $buildDeps; \
+	rm -rf /var/log/dpkg.log /var/log/alternatives.log /var/log/apt; \
 	rm -f /usr/local/apache2/logs/httpd.pid
 
 EXPOSE 80
