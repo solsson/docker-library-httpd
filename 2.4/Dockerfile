@@ -37,20 +37,20 @@ ENV HTTPD_SHA256 777753a5a25568a2a27428b2214980564bc1c38c1abf9ccc7630b639991f7f0
 # https://httpd.apache.org/security/vulnerabilities_24.html
 ENV HTTPD_PATCHES=""
 
-ENV APACHE_DIST_URLS \
 # https://issues.apache.org/jira/browse/INFRA-8753?focusedCommentId=14735394#comment-14735394
-	https://www.apache.org/dyn/closer.cgi?action=download&filename= \
 # if the version is outdated (or we're grabbing the .asc file), we might have to pull from the dist/archive :/
+ENV APACHE_DIST_URLS \
+	https://www.apache.org/dyn/closer.cgi?action=download&filename= \
 	https://www-us.apache.org/dist/ \
 	https://www.apache.org/dist/ \
 	https://archive.apache.org/dist/
 
 # see https://httpd.apache.org/docs/2.4/install.html#requirements
+# mod_http2 mod_lua mod_proxy_html mod_xml2enc
+# https://anonscm.debian.org/cgit/pkg-apache/apache2.git/tree/debian/control?id=adb6f181257af28ee67af15fc49d2699a0080d4c
 RUN set -eux; \
 	export DEBIAN_FRONTEND=noninteractive; \
 	\
-	# mod_http2 mod_lua mod_proxy_html mod_xml2enc
-	# https://anonscm.debian.org/cgit/pkg-apache/apache2.git/tree/debian/control?id=adb6f181257af28ee67af15fc49d2699a0080d4c
 	buildDeps=" \
 		bzip2 \
 		ca-certificates \
@@ -87,7 +87,6 @@ RUN set -eux; \
 	ddist 'httpd.tar.bz2' "httpd/httpd-$HTTPD_VERSION.tar.bz2"; \
 	echo "$HTTPD_SHA256 *httpd.tar.bz2" | sha256sum -c -; \
 	\
-# see https://httpd.apache.org/download.cgi#verify
 	ddist 'httpd.tar.bz2.asc' "httpd/httpd-$HTTPD_VERSION.tar.bz2.asc"; \
 	export GNUPGHOME="$(mktemp -d)"; \
 	gpg --keyserver ha.pool.sks-keyservers.net --recv-keys A93D62ECC3C8EA12DB220EC934EA76E6791485A8; \
