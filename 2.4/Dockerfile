@@ -139,9 +139,8 @@ RUN set -eux; \
 		-e 's!^(\s*ErrorLog)\s+\S+!\1 /proc/self/fd/2!g' \
 		"$HTTPD_PREFIX/conf/httpd.conf"; \
 	\
-	apt-get purge -y --auto-remove $buildDeps
-
-COPY httpd-foreground /usr/local/bin/
+	apt-get purge -y --auto-remove $buildDeps; \
+	rm -f /usr/local/apache2/logs/httpd.pid
 
 EXPOSE 80
-CMD ["httpd-foreground"]
+ENTRYPOINT ["httpd","-DFOREGROUND"]
