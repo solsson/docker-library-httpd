@@ -1,4 +1,4 @@
-FROM debian:jessie-backports
+FROM debian:stretch-slim@sha256:ea42520331a55094b90f6f6663211d4f5a62c5781673935fe17a4dfced777029
 
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
 #RUN groupadd -r www-data && useradd -r --create-home -g www-data www-data
@@ -11,26 +11,12 @@ WORKDIR $HTTPD_PREFIX
 
 # library for mod_http2
 ENV NGHTTP2_VERSION 1.18.1-1
-ENV OPENSSL_VERSION 1.0.2l-1~bpo8+1
-RUN { \
-		echo 'deb http://deb.debian.org/debian stretch main'; \
-	} > /etc/apt/sources.list.d/stretch.list \
-	&& { \
-# add a negative "Pin-Priority" so that we never ever get packages from stretch unless we explicitly request them
-		echo 'Package: *'; \
-		echo 'Pin: release n=stretch'; \
-		echo 'Pin-Priority: -10'; \
-		echo; \
-# except nghttp2, which is the reason we're here
-		echo 'Package: libnghttp2*'; \
-		echo "Pin: version $NGHTTP2_VERSION"; \
-		echo 'Pin-Priority: 990'; \
-		echo; \
-	} > /etc/apt/preferences.d/unstable-nghttp2
+ENV OPENSSL_VERSION 1.1.0f-3+deb9u1
 
 # install httpd runtime dependencies
 # https://httpd.apache.org/docs/2.4/install.html#requirements
-RUN apt-get update \
+RUN export DEBIAN_FRONTEND=noninteractive \
+	&& apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		libapr1 \
 		libaprutil1 \
@@ -39,10 +25,11 @@ RUN apt-get update \
 		libaprutil1-dev \
 		liblua5.2-0 \
 		libnghttp2-14=$NGHTTP2_VERSION \
-		libpcre++0 \
-		libssl1.0.0=$OPENSSL_VERSION \
+		libpcre++0v5 \
+		libssl1.1=$OPENSSL_VERSION \
 		libxml2 \
-	&& rm -r /var/lib/apt/lists/*
+	&& rm -r /var/lib/apt/lists/* \
+	&& rm -rf /var/log/dpkg.log /var/log/alternatives.log /var/log/apt
 
 ENV HTTPD_VERSION 2.4.29
 ENV HTTPD_SHA256 777753a5a25568a2a27428b2214980564bc1c38c1abf9ccc7630b639991f7f00
@@ -50,22 +37,24 @@ ENV HTTPD_SHA256 777753a5a25568a2a27428b2214980564bc1c38c1abf9ccc7630b639991f7f0
 # https://httpd.apache.org/security/vulnerabilities_24.html
 ENV HTTPD_PATCHES=""
 
-ENV APACHE_DIST_URLS \
 # https://issues.apache.org/jira/browse/INFRA-8753?focusedCommentId=14735394#comment-14735394
-	https://www.apache.org/dyn/closer.cgi?action=download&filename= \
 # if the version is outdated (or we're grabbing the .asc file), we might have to pull from the dist/archive :/
+ENV APACHE_DIST_URLS \
+	https://www.apache.org/dyn/closer.cgi?action=download&filename= \
 	https://www-us.apache.org/dist/ \
 	https://www.apache.org/dist/ \
 	https://archive.apache.org/dist/
 
 # see https://httpd.apache.org/docs/2.4/install.html#requirements
+# mod_http2 mod_lua mod_proxy_html mod_xml2enc
+# https://anonscm.debian.org/cgit/pkg-apache/apache2.git/tree/debian/control?id=adb6f181257af28ee67af15fc49d2699a0080d4c
 RUN set -eux; \
+	export DEBIAN_FRONTEND=noninteractive; \
 	\
-	# mod_http2 mod_lua mod_proxy_html mod_xml2enc
-	# https://anonscm.debian.org/cgit/pkg-apache/apache2.git/tree/debian/control?id=adb6f181257af28ee67af15fc49d2699a0080d4c
 	buildDeps=" \
 		bzip2 \
 		ca-certificates \
+		gnupg2 dirmngr \
 		dpkg-dev \
 		gcc \
 		liblua5.2-dev \
@@ -98,7 +87,6 @@ RUN set -eux; \
 	ddist 'httpd.tar.bz2' "httpd/httpd-$HTTPD_VERSION.tar.bz2"; \
 	echo "$HTTPD_SHA256 *httpd.tar.bz2" | sha256sum -c -; \
 	\
-# see https://httpd.apache.org/download.cgi#verify
 	ddist 'httpd.tar.bz2.asc' "httpd/httpd-$HTTPD_VERSION.tar.bz2.asc"; \
 	export GNUPGHOME="$(mktemp -d)"; \
 	gpg --keyserver ha.pool.sks-keyservers.net --recv-keys A93D62ECC3C8EA12DB220EC934EA76E6791485A8; \
@@ -139,9 +127,9 @@ RUN set -eux; \
 		-e 's!^(\s*ErrorLog)\s+\S+!\1 /proc/self/fd/2!g' \
 		"$HTTPD_PREFIX/conf/httpd.conf"; \
 	\
-	apt-get purge -y --auto-remove $buildDeps
-
-COPY httpd-foreground /usr/local/bin/
+	apt-get purge -y --auto-remove $buildDeps; \
+	rm -rf /var/log/dpkg.log /var/log/alternatives.log /var/log/apt; \
+	rm -f /usr/local/apache2/logs/httpd.pid
 
 EXPOSE 80
-CMD ["httpd-foreground"]
+ENTRYPOINT ["httpd","-DFOREGROUND"]
